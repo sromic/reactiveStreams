@@ -1,4 +1,8 @@
-name := "reactiveStreams"
+lazy val `reactive-streams` = project
+  .in(file("."))
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
+
+name := "reactive-streams"
 
 version := "1.0"
 
@@ -22,6 +26,15 @@ scalacOptions ++= Seq(
   "-Ywarn-numeric-widen",
   "-Ywarn-value-discard",
   "-Xfuture")
+
+mainClass in (Compile, run) := Some("Boot")
+
+daemonUser.in(Docker) := "root"
+maintainer.in(Docker) := "Simun Romic"
+version.in(Docker)    := "latest"
+dockerBaseImage       := "java:8"
+dockerExposedPorts    := Vector(2552, 8080)
+dockerRepository      := Some("sromic")
 
 libraryDependencies ++= Seq(
   "com.iheart" %% "ficus" % "1.2.3",
