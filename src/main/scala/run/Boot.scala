@@ -1,16 +1,17 @@
+package run
+
 import akka.NotUsed
 import akka.actor.ActorSystem
+import akka.stream.ActorAttributes._
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Flow, Source}
-import models.{FullyEnrichedTaxiRide, TaxiRideWithDescription, TaxiRide}
-
-import database.drivers.CustomPostgresDiver.api._
-
+import akka.stream.Supervision._
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.sksamuel.elastic4s.streams.ReactiveElastic._
+import database.drivers.CustomPostgresDiver.api._
+import models.{FullyEnrichedTaxiRide, TaxiRide, TaxiRideWithDescription}
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ Future, Await, Promise }
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future, Promise}
 
 /**
  * Created by simun on 26.9.2016..
@@ -23,6 +24,7 @@ object Boot extends App {
 
   implicit lazy val system = ActorSystem("reactive-streams")
   implicit lazy val materializer = ActorMaterializer()
+  implicit lazy val ec = system.dispatcher
 
   val allTaxiData = sql"SELECT * FROM nyc_taxi_data;".as[TaxiRide]
 
@@ -34,8 +36,8 @@ object Boot extends App {
 
   def addDescriptionFlow(f: TaxiRide => Future[TaxiRideWithDescription]): Flow[TaxiRide, TaxiRideWithDescription, NotUsed] = Flow[TaxiRide]
     .mapAsync(parallelism = 8) {
-    tr => f(tr)
-  }
+      tr => f(tr)
+    }
 
   val addPricePerDistanceFlow: Flow[TaxiRideWithDescription, FullyEnrichedTaxiRide, NotUsed] =
     Flow[TaxiRideWithDescription].map { trwd =>
@@ -43,16 +45,6 @@ object Boot extends App {
 
       FullyEnrichedTaxiRide(trwd, pricePerDistance)
     }
-
-  def sumElementsSink[T] = Sink.fold[Int, T](0) { (sum, _) =>
-    val newSum = sum + 1
-
-    if (newSum % 5000 == 0) {
-      print(s"\rCount: $newSum")
-    }
-
-    newSum
-  }
 
   def bulkInsertToES: Future[Unit] = {
     val p = Promise[Unit]()
@@ -65,8 +57,8 @@ object Boot extends App {
     }
 
     taxiRideSource
-      .via(addDescriptionFlow(fakeApiCall))
-      .via(addPricePerDistanceFlow)
+      .via(addDescriptionFlow(fakeApiCall)).withAttributes(supervisionStrategy(resumingDecider))
+      .via(addPricePerDistanceFlow).withAttributes(supervisionStrategy(resumingDecider))
       .alsoTo(sumElementsSink)
       .runWith(esSink)
 
@@ -77,6 +69,3 @@ object Boot extends App {
 
   Await.result(system.terminate(), Duration.Inf)
 }
-
-
-

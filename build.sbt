@@ -1,6 +1,6 @@
 lazy val `reactive-streams` = project
   .in(file("."))
-  .enablePlugins(JavaAppPackaging, DockerPlugin)
+  .enablePlugins(JavaAppPackaging)
 
 name := "reactive-streams"
 
@@ -27,7 +27,7 @@ scalacOptions ++= Seq(
   "-Ywarn-value-discard",
   "-Xfuture")
 
-mainClass in (Compile, run) := Some("Boot")
+//mainClass in (Compile, run) := Some("run.BootES")
 
 daemonUser.in(Docker) := "root"
 maintainer.in(Docker) := "Simun Romic"
@@ -40,6 +40,7 @@ libraryDependencies ++= Seq(
   "com.iheart" %% "ficus" % "1.2.3",
   "com.sksamuel.elastic4s" %% "elastic4s-core" % "2.3.1",
   "com.sksamuel.elastic4s" %% "elastic4s-streams" % "2.3.1",
+  "com.typesafe.play" %% "play-json" % "2.5.8",
   "com.typesafe.akka" %% "akka-stream" % "2.4.10",
   "com.typesafe.slick" %% "slick" % "3.1.1",
   "org.postgresql" % "postgresql" % "9.4.1208",
